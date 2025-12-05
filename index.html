@@ -3,9 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>感情适配度测试</title>
+    <title>感情适配度测试 - Love Lab</title>
+    
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入中文字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- 引入 React 和 ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 引入 Babel 用于在浏览器中编译 JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- 配置 Tailwind -->
     <script>
       tailwind.config = {
         theme: {
@@ -33,7 +46,14 @@
       body {
         margin: 0;
         font-family: 'Noto Sans SC', sans-serif;
-        background-color: #fdf2f8; /* Very light pink background */
+        background-color: #fdf2f8;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fadeIn {
+        animation: fadeIn 0.5s ease-out forwards;
       }
     </style>
   <script type="importmap">
@@ -48,6 +68,302 @@
 </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+
+    <!-- 主应用程序逻辑 -->
+    <script type="text/babel" data-presets="react,typescript">
+      const { useState, useMemo } = React;
+
+      // --- 类型定义 ---
+      // 在 Babel Standalone 中，虽然运行时不检查类型，但我们可以保留接口定义以供阅读
+      
+      const AppState = {
+        WELCOME: 'WELCOME',
+        QUIZ: 'QUIZ',
+        RESULT: 'RESULT',
+      };
+
+      // --- 常量数据 (Constants) ---
+
+      const OPTIONS = [
+        { label: "完全不符合", score: 1 },
+        { label: "不太符合", score: 2 },
+        { label: "比较符合", score: 3 },
+        { label: "完全符合", score: 4 },
+      ];
+
+      const QUESTIONS = [
+        { id: 1, text: "在这段关系中，我能够完全做真实的自己，不需要刻意伪装。", category: "Self-Expression" },
+        { id: 2, text: "当我们发生冲突时，能够理性沟通并找到解决办法，而不是冷战或互相攻击。", category: "Communication" },
+        { id: 3, text: "我完全信任对方，不担心通过查岗或猜忌来获得安全感。", category: "Trust" },
+        { id: 4, text: "对方尊重我的个人空间、兴趣爱好以及社交圈子。", category: "Respect" },
+        { id: 5, text: "我们在未来规划（如婚姻、事业、居住地）上有共同的愿景。", category: "Values" },
+        { id: 6, text: "和对方在一起时，我感到精力充沛，而不是身心俱疲。", category: "Energy" },
+        { id: 7, text: "对方能在我低谷或困难时给予情感上的支持和鼓励。", category: "Support" },
+        { id: 8, text: "我们不仅是恋人，也是可以说心里话的好朋友。", category: "Friendship" },
+        { id: 9, text: "我能够坦然地表达我的不满或需求，而不必担心对方会大发雷霆。", category: "Safety" },
+        { id: 10, text: "我们在这段关系中的付出（情感、金钱、时间）总体上是平衡的。", category: "Balance" },
+        { id: 11, text: "对方愿意为了我们的关系做出合理的妥协或改变。", category: "Commitment" },
+        { id: 12, text: "我欣赏对方的人品和性格，并且为拥有这样的伴侣感到自豪。", category: "Admiration" },
+        { id: 13, text: "在这段关系中，我感觉自己变成了一个更好的人。", category: "Growth" },
+        { id: 14, text: "我们在金钱观和消费习惯上基本一致，或者能达成共识。", category: "Finance" },
+        { id: 15, text: "想到要和这个人共度余生，我更多感到的是期待而不是恐惧。", category: "Future" },
+      ];
+
+      const RESULTS = [
+        {
+          minScore: 0,
+          maxScore: 35,
+          title: "警惕信号",
+          description: "这段关系目前可能存在较多核心问题，你在这段感情中可能感到压抑或不安。",
+          colorClass: "text-red-600",
+          advice: [
+            "重新审视你们的沟通方式，是否存在不可调和的矛盾。",
+            "关注自己的情绪健康，不要为了维持关系而过度牺牲。",
+            "如果感到不安全或不被尊重，请寻求专业咨询或考虑及时止损。"
+          ]
+        },
+        {
+          minScore: 36,
+          maxScore: 49,
+          title: "需要磨合",
+          description: "你们有一定的感情基础，但在某些关键领域（如沟通、价值观）仍需努力。",
+          colorClass: "text-yellow-600",
+          advice: [
+            "尝试进行深度对话，坦诚表达彼此未被满足的需求。",
+            "建立共同的解决冲突机制，避免问题积压。",
+            "多关注对方的优点，同时在这个磨合期保持耐心。"
+          ]
+        },
+        {
+          minScore: 50,
+          maxScore: 60,
+          title: "天作之合",
+          description: "恭喜！你们的关系非常健康且稳固，彼此信任、支持，拥有高度的默契。",
+          colorClass: "text-green-600",
+          advice: [
+            "保持现在的沟通频率和情感互动。",
+            "共同规划未来，为生活增添更多仪式感。",
+            "继续支持彼此的个人成长，让关系成为彼此的滋养。"
+          ]
+        },
+      ];
+
+      // --- 组件 (Components) ---
+
+      // Welcome Screen
+      const WelcomeScreen = ({ onStart }) => {
+        return (
+          <div className="flex flex-col items-center justify-center flex-1 text-center animate-fadeIn">
+            <div className="mb-6 relative">
+              <div className="absolute inset-0 bg-brand-200 rounded-full blur-xl opacity-50"></div>
+              <img 
+                src="https://picsum.photos/200/200?random=1" 
+                alt="Couple illustration" 
+                className="relative w-40 h-40 object-cover rounded-full border-4 border-white shadow-lg"
+              />
+            </div>
+
+            <h1 className="text-2xl font-bold text-gray-800 mb-3">
+              这段感情适合我吗？
+            </h1>
+            
+            <p className="text-gray-500 mb-8 leading-relaxed">
+              爱情需要感性体验，也需要理性审视。通过15个心理学维度的问题，帮助你看清当下关系的真实状态。
+            </p>
+
+            <div className="space-y-4 w-full">
+              <div className="flex items-center gap-3 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                <span className="bg-brand-100 text-brand-600 px-2 py-0.5 rounded text-xs font-bold">15题</span>
+                <span>大约需要 2 分钟</span>
+              </div>
+              
+              <button 
+                onClick={onStart}
+                className="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-4 px-6 rounded-xl shadow-lg shadow-brand-200 transform transition active:scale-95 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+              >
+                开始测试
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      // Quiz Screen
+      const QuizScreen = ({ currentQuestionIndex, onAnswer }) => {
+        const question = QUESTIONS[currentQuestionIndex];
+        const progress = ((currentQuestionIndex + 1) / QUESTIONS.length) * 100;
+
+        return (
+          <div className="flex flex-col flex-1 animate-fadeIn">
+            {/* Progress Bar */}
+            <div className="w-full bg-gray-100 rounded-full h-2 mb-6">
+              <div 
+                className="bg-brand-500 h-2 rounded-full transition-all duration-500 ease-out" 
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+
+            <div className="flex justify-between text-xs text-gray-400 font-medium mb-8 uppercase tracking-wide">
+              <span>Question {currentQuestionIndex + 1}</span>
+              <span>{QUESTIONS.length} Total</span>
+            </div>
+
+            <h2 className="text-xl font-bold text-gray-800 mb-2 min-h-[60px]">
+              {question.text}
+            </h2>
+            
+            <span className="inline-block px-3 py-1 bg-purple-50 text-purple-600 text-xs font-medium rounded-full mb-8 self-start">
+              {question.category}
+            </span>
+
+            <div className="space-y-3 mt-auto">
+              {OPTIONS.map((option) => (
+                <button
+                  key={option.score}
+                  onClick={() => onAnswer(option.score)}
+                  className="w-full text-left p-4 rounded-xl border border-gray-200 hover:border-brand-300 hover:bg-brand-50 transition-all duration-200 group"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-700 font-medium group-hover:text-brand-700">
+                      {option.label}
+                    </span>
+                    <span className="w-4 h-4 rounded-full border-2 border-gray-300 group-hover:border-brand-500"></span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      };
+
+      // Result Screen
+      const ResultScreen = ({ result, score, onRetry }) => {
+        return (
+          <div className="flex flex-col flex-1 animate-fadeIn overflow-y-auto">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-50 mb-4 shadow-inner">
+                <span className={`text-3xl font-bold ${result.colorClass}`}>
+                  {score}
+                </span>
+                <span className="text-gray-400 text-xs self-end mb-4 ml-1">/ 60</span>
+              </div>
+              
+              <h2 className={`text-2xl font-bold mb-2 ${result.colorClass}`}>
+                {result.title}
+              </h2>
+              
+              <p className="text-gray-600 text-sm leading-relaxed px-4">
+                {result.description}
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-5 mb-6">
+              <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">
+                给你的建议
+              </h3>
+              <ul className="space-y-3">
+                {result.advice.map((item, idx) => (
+                  <li key={idx} className="flex items-start text-sm text-gray-600">
+                    <span className="mr-2 mt-1 text-brand-500">•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="mt-auto">
+              <button 
+                onClick={onRetry}
+                className="w-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold py-3 px-6 rounded-xl transition shadow-sm"
+              >
+                重新测试
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      // Heart Icon
+      const HeartIcon = () => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-500">
+          <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+        </svg>
+      );
+
+      // --- 主应用 (Main App) ---
+      const App = () => {
+        const [appState, setAppState] = useState(AppState.WELCOME);
+        const [answers, setAnswers] = useState([]);
+
+        const startQuiz = () => {
+          setAppState(AppState.QUIZ);
+          setAnswers([]);
+        };
+
+        const handleAnswer = (score) => {
+          const newAnswers = [...answers, score];
+          setAnswers(newAnswers);
+
+          if (newAnswers.length === QUESTIONS.length) {
+            setAppState(AppState.RESULT);
+          }
+        };
+
+        const resetQuiz = () => {
+          setAppState(AppState.WELCOME);
+          setAnswers([]);
+        };
+
+        const finalResult = useMemo(() => {
+          if (answers.length === 0) return null;
+          const totalScore = answers.reduce((a, b) => a + b, 0);
+          return RESULTS.find(r => totalScore >= r.minScore && totalScore <= r.maxScore) || RESULTS[1];
+        }, [answers]);
+
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-brand-50 to-purple-50 flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden min-h-[600px] flex flex-col relative">
+              
+              {/* Header Decoration */}
+              <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-brand-300 to-purple-300"></div>
+
+              {/* Content Area */}
+              <div className="flex-1 flex flex-col p-6 md:p-8">
+                
+                {/* Top Branding */}
+                <div className="flex items-center justify-center gap-2 mb-6 opacity-80">
+                  <HeartIcon />
+                  <span className="text-sm font-medium text-gray-500 tracking-wider">LOVE LAB</span>
+                </div>
+
+                {appState === AppState.WELCOME && (
+                  <WelcomeScreen onStart={startQuiz} />
+                )}
+
+                {appState === AppState.QUIZ && (
+                  <QuizScreen 
+                    currentQuestionIndex={answers.length} 
+                    onAnswer={handleAnswer} 
+                  />
+                )}
+
+                {appState === AppState.RESULT && finalResult && (
+                  <ResultScreen 
+                    result={finalResult} 
+                    score={answers.reduce((a, b) => a + b, 0)} 
+                    onRetry={resetQuiz} 
+                  />
+                )}
+
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // 渲染应用
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
   </body>
 </html>
